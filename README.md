@@ -1,123 +1,201 @@
-# CivicLens
+# ⚡ CivicLens
 
-CivicLens is a civic complaint management system that allows citizens to report local issues and government departments to manage and resolve them. The system features automatic image classification using machine learning to categorize complaints.
+> **Civic infrastructure meets intelligent automation.** CivicLens is a full-stack, microservices-driven civic complaint management platform — built to bridge the gap between citizens and government through real-time issue reporting, ML-powered image classification, and a streamlined departmental resolution pipeline.
 
-## Project Structure
+---
+
+## 🏗️ Architecture Overview
+
+CivicLens is composed of four independently deployable services, communicating over RESTful APIs with a shared MongoDB data layer and an isolated ML inference microservice.
 
 ```
 civiclens/
-├── backend-node/          # Node.js backend API
-├── backend-python/        # Python ML service
-├── citizen/               # Citizen portal frontend
-├── department/            # Department portal frontend
-├── DATABASE_SETUP.md      # Database configuration guide
-├── DEPLOYMENT.md          # Deployment guide
-└── README.md              # This file
+├── backend-node/          # Express.js REST API — auth, complaints, votes, comments
+├── backend-python/        # Flask ML microservice — ResNet50 image classification
+├── citizen/               # Next.js citizen-facing portal
+├── department/            # Next.js departmental dashboard
+├── DATABASE_SETUP.md      # MongoDB provisioning guide
+├── DEPLOYMENT.md          # Production deployment runbook
+└── README.md
 ```
 
-## Services
+### System Topology
 
-### 1. Citizen Portal (`citizen/`)
-A Next.js frontend for citizens to:
-- Register and login
-- Submit complaints with images
-- View and vote on complaints
-- Comment on complaints
-- Track complaint status
+```
+  [Citizen Portal]          [Department Portal]
+      Next.js                    Next.js
+         │                          │
+         └──────────┬───────────────┘
+                    ▼
+           [Backend Node API]
+           Express.js + JWT
+                    │
+          ┌─────────┴──────────┐
+          ▼                    ▼
+       MongoDB            [ML Service]
+       (Atlas)           Flask + ResNet50
+```
 
-### 2. Department Portal (`department/`)
-A Next.js frontend for government departments to:
-- Register and login
-- View complaints in their jurisdiction
-- Resolve complaints
-- Comment on complaints
+---
 
-### 3. Backend API (`backend-node/`)
-A Node.js/Express backend that:
-- Handles user authentication
-- Manages complaints, votes, and comments
-- Communicates with the ML service
-- Provides RESTful APIs for both frontends
+## 🧩 Services
 
-### 4. ML Service (`backend-python/`)
-A Python/Flask microservice that:
-- Classifies images using a ResNet50 model
-- Provides prediction endpoints for the backend
-- Runs independently of the main backend
+### 🏙️ Citizen Portal — `citizen/`
+**Next.js** — Server-side rendered, mobile-responsive citizen interface.
 
-## Prerequisites
+- **Auth flows** — JWT-based registration & login
+- **Complaint submission** — Multi-step form with image upload pipeline routed through the ML classifier
+- **Social layer** — Upvote/downvote system and threaded commenting
+- **Status tracking** — Real-time complaint lifecycle visibility
 
-- Node.js 18 or higher
-- Python 3.8 or higher
-- MongoDB (local or Atlas)
-- npm/yarn and pip
+---
 
-## Setup Instructions
+### 🏛️ Department Portal — `department/`
+**Next.js** — Jurisdiction-scoped dashboard for government departments.
 
-### 1. Database Setup
-Follow the instructions in [DATABASE_SETUP.md](DATABASE_SETUP.md) to set up MongoDB.
+- **Scoped complaint feed** — Filtered by department jurisdiction
+- **Resolution workflow** — Status updates and resolution logging
+- **Communication layer** — Comment interface for citizen-department dialogue
 
-### 2. Backend API (`backend-node/`)
+---
+
+### ⚙️ Backend API — `backend-node/`
+**Node.js / Express** — The core API layer. Handles all business logic, authentication, and service orchestration.
+
+- **Auth** — JWT-secured endpoints for citizens and departments
+- **Complaint engine** — Full CRUD with status lifecycle management
+- **Voting system** — Idempotent upvote/downvote with aggregation
+- **ML bridge** — Proxies image payloads to the Python inference service and persists classification results
+
+---
+
+### 🤖 ML Service — `backend-python/`
+**Python / Flask + ResNet50** — A purpose-built inference microservice decoupled from the core API.
+
+- **Model** — Transfer-learned ResNet50 (ImageNet backbone) fine-tuned for civic complaint image categorization
+- **Endpoints** — RESTful prediction API consumed by the Node backend
+- **Isolation** — Independent deployment lifecycle; can be scaled or swapped without touching the main API
+
+---
+
+## ⚙️ Prerequisites
+
+| Dependency | Version |
+|---|---|
+| Node.js | ≥ 18.x |
+| Python | ≥ 3.8 |
+| MongoDB | Local or Atlas |
+| npm / yarn | Latest stable |
+| pip | Latest stable |
+
+---
+
+## 🚀 Local Development Setup
+
+### 1. Database
+
+Follow [DATABASE_SETUP.md](DATABASE_SETUP.md) to spin up and configure your MongoDB instance.
+
+---
+
+### 2. Backend API
+
 ```bash
 cd backend-node
 npm install
 cp .env.example .env
-# Edit .env with your configuration
+# Configure DB URI, JWT secret, ML service URL
 npm run dev
 ```
 
-### 3. ML Service (`backend-python/`)
+---
+
+### 3. ML Inference Service
+
 ```bash
 cd backend-python
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your configuration
+# Configure model path, port, allowed origins
 python ml/predict.py
 ```
 
-### 4. Citizen Portal (`citizen/`)
+---
+
+### 4. Citizen Portal
+
 ```bash
 cd citizen
 npm install
 cp .env.example .env.local
-# Edit .env.local with your API URL
+# Set NEXT_PUBLIC_API_URL to your backend
 npm run dev
 ```
 
-### 5. Department Portal (`department/`)
+---
+
+### 5. Department Portal
+
 ```bash
 cd department
 npm install
 cp .env.example .env.local
-# Edit .env.local with your API URL
+# Set NEXT_PUBLIC_API_URL to your backend
 npm run dev
 ```
 
-## Environment Variables
+---
 
-Each service has its own environment variables. Check the `.env.example` file in each directory for required variables.
+## 🔐 Environment Configuration
 
-## Deployment
+Each service is independently configured via its own `.env` / `.env.local` file. Reference the `.env.example` in each service directory for the complete variable manifest. Never commit secrets — use a secrets manager in production.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+---
 
-### Vercel (Frontends)
-- Citizen Portal: Deploy the `citizen/` directory
-- Department Portal: Deploy the `department/` directory
+## ☁️ Deployment
 
-### Render (Backends)
-- Backend API: Deploy the `backend-node/` directory
-- ML Service: Deploy the `backend-python/` directory
+Full deployment runbook in [DEPLOYMENT.md](DEPLOYMENT.md).
 
-Make sure to configure environment variables appropriately for each deployment platform.
+### Frontends → Vercel
 
-## API Documentation
+| Service | Deploy Root |
+|---|---|
+| Citizen Portal | `citizen/` |
+| Department Portal | `department/` |
 
-The backend API provides RESTful endpoints for:
-- User authentication
-- Department authentication
-- Complaint management
-- Voting system
-- Comment system
+### Backends → Render
 
-Refer to the README files in each service directory for detailed API documentation.
+| Service | Deploy Root |
+|---|---|
+| Node API | `backend-node/` |
+| ML Service | `backend-python/` |
+
+> Set all environment variables via your platform's secret management (Vercel env vars / Render environment groups) — never bake secrets into the build.
+
+---
+
+## 📡 API Surface
+
+The Node.js backend exposes a structured RESTful API. Full endpoint documentation lives in `backend-node/README.md`.
+
+**Domain areas:**
+- `/auth` — Citizen & department authentication (register, login, token refresh)
+- `/complaints` — Full CRUD, status transitions, ML classification metadata
+- `/votes` — Upvote / downvote with deduplication
+- `/comments` — Threaded comment system on complaints
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Tech |
+|---|---|
+| Citizen & Dept UI | Next.js, React |
+| API Server | Node.js, Express, JWT |
+| ML Inference | Python, Flask, ResNet50, PyTorch/TF |
+| Database | MongoDB (Mongoose ODM) |
+| Deployment | Vercel (frontend), Render (backend) |
+
+---
+
+> Built for cities that move fast. Complaints in — resolutions out.
